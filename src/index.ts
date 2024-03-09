@@ -1,4 +1,7 @@
+import * as dotnev from "dotenv";
 import { initServer } from "./app";
+
+dotnev.config();
 
 async function init() {
   const app = await initServer();
