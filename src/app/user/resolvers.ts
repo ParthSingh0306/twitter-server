@@ -33,7 +33,7 @@ const extraResolvers = {
         where: { following: { id: parent.id } },
         include: {
           follower: true,
-        }
+        },
       });
       return result.map((el) => el.follower);
     },
@@ -42,27 +42,67 @@ const extraResolvers = {
         where: { follower: { id: parent.id } },
         include: {
           following: true,
-        }
+        },
       });
       return result.map((el) => el.following);
-    }
+    },
+    recommendedUsers: async (parent: User, _: any, ctx: GraphqlContext) => {
+      if (!ctx.user) return [];
+      const myFollowings = await prismaClient.follows.findMany({
+        where: {
+          follower: { id: ctx.user.id },
+        },
+        include: {
+          following: {
+            include: { followers: { include: { following: true } } },
+          },
+        },
+      });
+
+      const users: User[] = [];
+
+      for (const followings of myFollowings) {
+        for (const followingOfFollowedUser of followings.following.followers) {
+          if (
+            followingOfFollowedUser.following.id !== ctx.user.id &&
+            myFollowings.findIndex(
+              (e) => e?.followingId === followingOfFollowedUser.following.id
+            ) < 0
+          ) {
+            users.push(followingOfFollowedUser.following);
+          }
+        }
+      }
+
+      return users;
+    },
   },
 };
 
 const mutations = {
-  followUser: async (parent: any, { to }: { to: string }, ctx: GraphqlContext) => {
-    if (!ctx.user || !ctx.user.id) throw new Error("You are not Authenticated!!");
+  followUser: async (
+    parent: any,
+    { to }: { to: string },
+    ctx: GraphqlContext
+  ) => {
+    if (!ctx.user || !ctx.user.id)
+      throw new Error("You are not Authenticated!!");
 
     await UserService.followUser(ctx.user.id, to);
     return true;
   },
 
-  unfollowUser: async (parent: any, { to }: { to: string }, ctx: GraphqlContext) => {
-    if (!ctx.user || !ctx.user.id) throw new Error("You are not Authenticated!!");
+  unfollowUser: async (
+    parent: any,
+    { to }: { to: string },
+    ctx: GraphqlContext
+  ) => {
+    if (!ctx.user || !ctx.user.id)
+      throw new Error("You are not Authenticated!!");
 
     await UserService.unfollowUser(ctx.user.id, to);
     return true;
   },
-}
+};
 
 export const resolvers = { queries, extraResolvers, mutations };
