@@ -1,6 +1,7 @@
 import axios from "axios";
 import { prismaClient } from "../clients/db";
 import JWTService from "./jwt";
+import { redisClient } from "../clients/redis";
 
 interface GoogleTokenResult {
     iss?: string;
@@ -63,28 +64,40 @@ class UserService {
         return userToken;
     }
 
-    public static getUserById(id: string) {
-        return prismaClient.user.findUnique({ where: { id } });
+    public static async getUserById(id: string) {
+        const cachedUser = await redisClient.get(`USER:${id}`);
+        if (cachedUser) {
+            return JSON.parse(cachedUser);
+        }
+        const userById = await prismaClient.user.findUnique({ where: { id } });
+        await redisClient.set(`USER:${id}`, JSON.stringify(userById));
+        return userById;
     }
 
-    public static followUser(from: string, to: string) {
-        return prismaClient.follows.create({
+    public static async followUser(from: string, to: string) {
+        const follow = prismaClient.follows.create({
             data: {
                 follower: { connect: { id: from } },
                 following: { connect: { id: to } },
             }
-        })
+        });
+
+        await redisClient.del(`USER:${from}`);
+        return follow;
     }
 
-    public static unfollowUser(from: string, to: string) {
-        return prismaClient.follows.delete({
+    public static async unfollowUser(from: string, to: string) {
+        const unfollow = await prismaClient.follows.delete({
             where: {
                 followerId_followingId: {
                     followerId: from,
                     followingId: to,
                 }
             }
-        })
+        });
+
+        await redisClient.del(`USER:${from}`);
+        return unfollow;
     }
 }
 

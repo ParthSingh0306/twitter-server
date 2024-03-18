@@ -2,6 +2,7 @@ import { prismaClient } from "../../clients/db";
 import { GraphqlContext } from "../../interfaces";
 import { User } from "@prisma/client";
 import UserService from "../../services/user";
+import { redisClient } from "../../clients/redis";
 
 const queries = {
   verifyGoogleToken: async (parent: any, { token }: { token: string }) => {
@@ -48,6 +49,14 @@ const extraResolvers = {
     },
     recommendedUsers: async (parent: User, _: any, ctx: GraphqlContext) => {
       if (!ctx.user) return [];
+
+      const cachedValue = await redisClient.get(`RECOMMENDED_USERS:${ctx.user.id}`);
+
+      if (cachedValue) {
+        console.log("Cached found for recommended users!!");
+        return JSON.parse(cachedValue);
+      }
+
       const myFollowings = await prismaClient.follows.findMany({
         where: {
           follower: { id: ctx.user.id },
@@ -74,6 +83,13 @@ const extraResolvers = {
         }
       }
 
+      console.log("Cached not found for recommended users!!");
+
+      await redisClient.set(
+        `RECOMMENDED_USERS:${ctx.user.id}`,
+        JSON.stringify(users)
+      );
+
       return users;
     },
   },
@@ -89,6 +105,7 @@ const mutations = {
       throw new Error("You are not Authenticated!!");
 
     await UserService.followUser(ctx.user.id, to);
+    await redisClient.del(`RECOMMENDED_USERS:${ctx.user.id}`);
     return true;
   },
 
@@ -101,6 +118,7 @@ const mutations = {
       throw new Error("You are not Authenticated!!");
 
     await UserService.unfollowUser(ctx.user.id, to);
+    await redisClient.del(`RECOMMENDED_USERS:${ctx.user.id}`);
     return true;
   },
 };
