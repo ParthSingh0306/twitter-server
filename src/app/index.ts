@@ -15,6 +15,10 @@ export async function initServer() {
     app.use(bodyParser.json());
     app.use(cors());
 
+    app.get("/", (req, res) =>
+        res.status(200).json({ message: "Everything is Ok!!!" })
+    );
+
     const graphqlServer = new ApolloServer<GraphqlContext>({
         typeDefs: `
             ${User.types}
@@ -33,14 +37,14 @@ export async function initServer() {
         resolvers: {
             Query: {
                 ...User.resolvers.queries,
-                ...Tweet.resolvers.queries
+                ...Tweet.resolvers.queries,
             },
             Mutation: {
                 ...Tweet.resolvers.mutations,
-                ...User.resolvers.mutations
+                ...User.resolvers.mutations,
             },
             ...Tweet.resolvers.extraResolvers,
-            ...User.resolvers.extraResolvers
+            ...User.resolvers.extraResolvers,
         },
     });
 
@@ -51,7 +55,9 @@ export async function initServer() {
             context: async ({ req, res }) => {
                 return {
                     user: req.headers.authorization
-                        ? JWTService.decodeToken(req.headers.authorization.split("Bearer ")[1])
+                        ? JWTService.decodeToken(
+                            req.headers.authorization.split("Bearer ")[1]
+                        )
                         : undefined,
                 };
             },
