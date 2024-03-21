@@ -1,7 +1,7 @@
 import { prismaClient } from "../../clients/db";
 import { GraphqlContext } from "../../interfaces";
 import { User } from "@prisma/client";
-import UserService from "../../services/user.ts";
+import UserService from "@src/services/user.ts";
 import { redisClient } from "../../clients/redis";
 
 const queries = {
