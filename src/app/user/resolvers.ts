@@ -4,6 +4,7 @@ import { User } from "@prisma/client";
 import UserService from "../../services/user";
 import { redisClient } from "../../clients/redis";
 
+
 const queries = {
   verifyGoogleToken: async (parent: any, { token }: { token: string }) => {
     const resultToken = await UserService.verifyGoogleAuthToken(token);
